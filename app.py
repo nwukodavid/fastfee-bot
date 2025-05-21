@@ -1,5 +1,3 @@
-# Fast Fee - WhatsApp School Fees Payment Bot (Flask + Twilio)
-
 from flask import Flask, request, jsonify
 from twilio.twiml.messaging_response import MessagingResponse
 import requests
@@ -8,6 +6,7 @@ app = Flask(__name__)
 
 # Mock student database
 students_db = {}
+
 # Simple in-memory session store
 sessions = {}
 
@@ -15,117 +14,82 @@ sessions = {}
 def whatsapp():
     sender = request.form.get('From')
     msg = request.form.get('Body').strip()
-    print(f"\n[Webhook hit] From: {sender}, Message: {msg}")  # DEBUG
+    print(f"\n[Webhook hit] From: {sender}, Msg: {msg}")
 
     response = MessagingResponse()
+
+    # Handle "restart" command
+    if msg.lower() == "restart":
+        sessions[sender] = {"stage": 0}
+        response.message(
+            "Session restarted. Welcome to Fast Fee!\n"
+            "How can I help you today?\n"
+            "1. Pay School Fees\n"
+            "2. Check Payment Status\n"
+            "3. Other"
+        )
+        return str(response)
+
     session = sessions.get(sender, {"stage": 0})
-    print(f"[Current session] {session}")  # DEBUG
+    print(f"[Current session] {session}")
 
     if session["stage"] == 0:
-        response.message("Hello, how are you? How can I help you today?\n\n1. Pay School Fees")
+        response.message(
+            "Hello, how are you?\n"
+            "1. Pay School Fees\n"
+            "2. Check Payment Status\n"
+            "3. Other"
+        )
         session["stage"] = 1
-        print("[Stage 0] Greeted user")  # DEBUG
+        print("[Stage 0] Greeted user")
 
     elif session["stage"] == 1:
         if msg == "1":
-            response.message("Please enter the Student's Full Name:")
+            response.message("Enter your Ecocash Number:")
             session["stage"] = 2
-            print("[Stage 1] User chose to pay fees")  # DEBUG
+            print("[Stage 1] User chose to pay school fees")
+        elif msg == "2":
+            response.message("Please enter your payment reference number.")
+            session["stage"] = 5  # Example stage for checking payment
+            print("[Stage 1] User checking payment")
         else:
-            response.message("Invalid option. Please type 1 to continue.")
-            print("[Stage 1] Invalid input")  # DEBUG
+            response.message("Invalid option. Please reply with 1, 2, or 3.")
 
     elif session["stage"] == 2:
-        session["student_name"] = msg
-        response.message("Enter the School Name:")
-        session["stage"] = 3
-        print(f"[Stage 2] Collected name: {msg}")  # DEBUG
-
-    elif session["stage"] == 3:
-        session["school_name"] = msg
-        response.message("Enter the Bank Account Number:")
-        session["stage"] = 4
-        print(f"[Stage 3] School name: {msg}")  # DEBUG
-
-    elif session["stage"] == 4:
-        session["bank_account"] = msg
-        response.message("Which payment method do you want to use?\n1. Ecocash\n2. PayPal\n3. Other")
-        session["stage"] = 5
-        print(f"[Stage 4] Bank account: {msg}")  # DEBUG
-
-    elif session["stage"] == 5:
-        if msg == "1":
-            session["payment_method"] = "Ecocash"
-            response.message("Enter your Ecocash Number:")
-            session["stage"] = 6
-            print("[Stage 5] Chose Ecocash")  # DEBUG
-        elif msg == "2":
-            session["payment_method"] = "PayPal"
-            response.message("Please visit this link to pay via PayPal: https://paypal.com/pay/fastfee")
-            response.message("Once completed, reply with 'done'.")
-            session["stage"] = 8
-            print("[Stage 5] Chose PayPal")  # DEBUG
-        elif msg == "3":
-            session["payment_method"] = "Other"
-            response.message("Please specify your preferred method (e.g. Visa, Mastercard):")
-            session["stage"] = 7
-            print("[Stage 5] Chose Other")  # DEBUG
-        else:
-            response.message("Invalid option. Please choose 1, 2, or 3.")
-            print("[Stage 5] Invalid input")  # DEBUG
-
-    elif session["stage"] == 6:
         session["ecocash_number"] = msg
         response.message("Enter your Ecocash PIN:")
-        session["stage"] = 9
-        print(f"[Stage 6] Ecocash number: {msg}")  # DEBUG
+        session["stage"] = 3
+        print("[Stage 2] Collected Ecocash number")
 
-    elif session["stage"] == 7:
-        session["payment_method"] = msg
-        response.message(f"Please follow this link to pay with {msg}: https://paymentgateway.com/fastfee")
-        response.message("Once completed, reply with 'done'.")
-        session["stage"] = 8
-        print(f"[Stage 7] Other method: {msg}")  # DEBUG
-
-    elif session["stage"] == 8:
-        if msg.lower() == "done":
-            response.message("Payment confirmed! Generating your receipt...")
-            receipt = f"""
-Payment Receipt - Fast Fee
---------------------------
-Student: {session.get('student_name')}
-School: {session.get('school_name')}
-Bank Account: {session.get('bank_account')}
-Payment Method: {session.get('payment_method')}
-Status: Paid
-"""
-            response.message(receipt + "\n\nYou may screenshot this and send it to the school as proof of payment.")
-            print("[Stage 8] Payment marked as done. Sending receipt")  # DEBUG
-            sessions[sender] = {"stage": 0}
-        else:
-            response.message("Please type 'done' after completing your payment.")
-            print("[Stage 8] Waiting for 'done'")  # DEBUG
-
-    elif session["stage"] == 9:
+    elif session["stage"] == 3:
         session["ecocash_pin"] = msg
         response.message("Processing payment via Ecocash...")
-        response.message("Payment successful! Generating your receipt...")
-        receipt = f"""
-Payment Receipt - Fast Fee
---------------------------
-Student: {session.get('student_name')}
-School: {session.get('school_name')}
-Bank Account: {session.get('bank_account')}
-Payment Method: Ecocash
-Ecocash Number: {session.get('ecocash_number')}
-Status: Paid
-"""
-        response.message(receipt + "\n\nYou may screenshot this and send it to the school as proof of payment.")
-        print("[Stage 9] Ecocash payment processed. Receipt sent")  # DEBUG
-        sessions[sender] = {"stage": 0}
+        print("[Stage 3] Collected PIN and processing payment")
 
-    sessions[sender] = session
-    print(f"[Updated session] {session}")  # DEBUG
+        # Simulated payment processing
+        receipt_text = (
+            "Payment Receipt - Fast Fee\n"
+            "--------------------------\n"
+            "Student: Nwuko\n"
+            "School: Futo\n"
+            f"Bank Account: {session['ecocash_number']}\n"
+            "Payment Method: Ecocash\n"
+            f"Ecocash Number: {session['ecocash_number']}\n"
+            "Status: Paid\n\n"
+            "You may screenshot this and send it to the school as proof of payment."
+        )
+        response.message("Payment successful! Generating your receipt…")
+        response.message(receipt_text)
+
+        # Clear session
+        sessions.pop(sender, None)
+        print("[Stage 3] Payment complete, session reset")
+
+    else:
+        response.message("Sorry, something went wrong. Please type 'restart' to start over.")
+        print("[Unknown stage] User session in unknown state")
+
+    sessions[sender] = session  # Save session
     return str(response)
 
 if __name__ == "__main__":
