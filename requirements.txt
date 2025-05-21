@@ -1,8 +1,4 @@
 flask
 requests
 gunicorn
-flask
-gunicorn
 twilio
-flask
-flask_sqlalchemy
